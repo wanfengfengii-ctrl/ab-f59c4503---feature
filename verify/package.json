@@ -1,0 +1,10 @@
+{
+  "name": "petri-audit-verify",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "一次性验收服务：在真实浏览器中执行审计台场景并以退出码报告结果",
+  "dependencies": {
+    "playwright-core": "1.47.2"
+  }
+}
