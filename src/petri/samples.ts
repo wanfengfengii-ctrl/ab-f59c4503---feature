@@ -13,7 +13,12 @@ const p = (name: string, capacity: number, initial: number, acceptance: number) 
   initial,
   acceptance,
 });
-const t = (name: string, pre: number[], post: number[]) => ({ name, pre, post });
+const t = (name: string, pre: number[], post: number[], controlled = true) => ({
+  name,
+  pre,
+  post,
+  controlled,
+});
 
 export const SAMPLES: Sample[] = [
   {
@@ -121,6 +126,51 @@ export const SAMPLES: Sample[] = [
         t('批次验收', [0, 0, 0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 1]),
       ],
       forbidden: [],
+    },
+  },
+  {
+    key: 'interlock-safe',
+    label: '泵冷却联锁（联锁可合成）',
+    description:
+      '过热是不可控自发事件，仅在无冷却的危险运行下可用；联锁拦截“违章启动”、放行“投冷却”路径，保证有限步停机验收。',
+    model: {
+      places: [
+        p('就绪', 1, 1, 0),
+        p('冷却就绪', 1, 0, 0),
+        p('泵运行', 1, 0, 0),
+        p('危险运行', 1, 0, 0),
+        p('过热', 1, 0, 0),
+        p('完成', 1, 0, 1),
+      ],
+      transitions: [
+        t('投冷却', [1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0]),
+        t('安全启动', [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0]),
+        t('违章启动', [1, 0, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0]),
+        t('安全停机', [0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1]),
+        t('紧急停机', [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1]),
+        t('过热', [0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 1, 0], false),
+      ],
+      forbidden: [[{ place: 4, op: 'ge', value: 1 }]],
+    },
+  },
+  {
+    key: 'interlock-unsafe',
+    label: '泵过热不可控（联锁无法保证）',
+    description:
+      '泵一旦运行，过热是不可控自发事件且必然进入禁态；联锁只能拒绝“启动泵”，初始标记即退化为非验收死锁，综合给出最早失控点与后果。',
+    model: {
+      places: [
+        p('就绪', 1, 1, 0),
+        p('泵运行', 1, 0, 0),
+        p('过热', 1, 0, 0),
+        p('完成', 1, 0, 1),
+      ],
+      transitions: [
+        t('启动泵', [1, 0, 0, 0], [0, 1, 0, 0]),
+        t('正常停机', [0, 1, 0, 0], [0, 0, 0, 1]),
+        t('过热', [0, 1, 0, 0], [0, 0, 1, 0], false),
+      ],
+      forbidden: [[{ place: 2, op: 'ge', value: 1 }]],
     },
   },
 ];

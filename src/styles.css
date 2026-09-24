@@ -424,6 +424,10 @@ input[type='number'] {
   border-top: 2px solid var(--amber);
 }
 
+.steps-table tr.consequence-start {
+  border-top: 2px solid var(--red);
+}
+
 .mono {
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -582,4 +586,156 @@ input[type='number'] {
   margin-top: 8px;
   max-height: 120px;
   overflow-y: auto;
+}
+
+/* 模式切换 / 变迁可控标记 */
+.mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mode-switch button {
+  border: none;
+  border-radius: 0;
+  padding: 6px 14px;
+  background: var(--panel-2);
+  color: var(--dim);
+}
+
+.mode-switch button.active {
+  background: #0c4a6e;
+  color: #e0f2fe;
+  font-weight: 600;
+}
+
+.controlled-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 12.5px;
+}
+
+.controlled-toggle input[type='checkbox'] {
+  width: auto;
+}
+
+.ctrl-tag {
+  margin-left: 6px;
+  font-size: 10.5px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.ctrl-tag.uncontrolled {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.transition-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 联锁综合结果 */
+.interlock-hint {
+  border-color: var(--amber);
+  color: var(--amber);
+  font-size: 12.5px;
+  margin-bottom: 12px;
+}
+
+.verdict-il-safe {
+  background: #052e16;
+  border-color: var(--green);
+  color: #86efac;
+}
+
+.verdict-il-unsafe {
+  background: #450a0a;
+  border-color: var(--red);
+  color: #fca5a5;
+}
+
+.il-summary p {
+  margin-top: 0;
+}
+
+.il-status-safe {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.il-status-acceptance {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.il-status-forbidden {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.il-status-losing {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.il-dec {
+  white-space: nowrap;
+}
+
+.il-dec-forced {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.il-dec-allowed {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.il-dec-blocked {
+  color: #fca5a5;
+  border-color: var(--red);
+}
+
+.il-edge-table,
+.il-edge-table td,
+.il-edge-table th {
+  vertical-align: top;
+}
+
+.il-reason {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.il-reason-box {
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  margin: 6px 0;
+}
+
+.il-failure h2 {
+  color: #fca5a5;
+}
+
+.il-failure .mono {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+select[data-testid='il-state-select'] {
+  width: auto;
+  min-width: 320px;
+  max-width: 100%;
 }

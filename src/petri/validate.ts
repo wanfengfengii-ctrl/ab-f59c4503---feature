@@ -58,6 +58,11 @@ export function validateModel(raw: unknown): { errors: string[]; model: PetriMod
   const normTransitions = transitions.map((t, i) => {
     const o = (typeof t === 'object' && t !== null ? t : {}) as Record<string, unknown>;
     const name = typeof o.name === 'string' && o.name.trim() ? o.name.trim() : `T${i + 1}`;
+    // 可控属性缺省视为可控；显式给出时必须为布尔值。
+    const controlled = o.controlled === undefined ? true : o.controlled;
+    if (o.controlled !== undefined && typeof o.controlled !== 'boolean') {
+      errors.push(`变迁 ${name}：可控属性 controlled 必须是布尔值（true=可控 / false=不可控）`);
+    }
     const readArcs = (key: 'pre' | 'post'): number[] => {
       const arr = Array.isArray(o[key]) ? (o[key] as unknown[]) : [];
       return normPlaces.map((_, pi) => {
@@ -70,7 +75,7 @@ export function validateModel(raw: unknown): { errors: string[]; model: PetriMod
         return v;
       });
     };
-    return { name, pre: readArcs('pre'), post: readArcs('post') };
+    return { name, controlled: controlled !== false, pre: readArcs('pre'), post: readArcs('post') };
   });
 
   // ---- 禁态条件（DNF）----

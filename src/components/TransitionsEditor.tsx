@@ -62,8 +62,12 @@ export function TransitionsEditor({ places, transitions, onChange }: Props) {
               data-testid={`transition-item-${i}`}
               className={`transition-item ${i === selected ? 'active' : ''}`}
               onClick={() => setSelected(i)}
+              title={t.controlled === false ? '不可控变迁：现场必然发生，联锁必须放行' : '可控变迁：联锁可拦截'}
             >
               <span className="dim">T{i + 1}</span> {t.name}
+              <span className={`ctrl-tag ${t.controlled === false ? 'uncontrolled' : ''}`}>
+                {t.controlled === false ? '不可控' : '可控'}
+              </span>
             </button>
           ))}
           <button
@@ -85,6 +89,15 @@ export function TransitionsEditor({ places, transitions, onChange }: Props) {
                   value={cur.name}
                   onChange={(e) => update(selected, { name: e.target.value })}
                 />
+              </label>
+              <label className="controlled-toggle" title="可控变迁可被联锁拒绝；不可控变迁表示现场必然发生的动作 / 自发事件，一旦可用联锁必须放行">
+                <input
+                  data-testid={`transition-controlled-${selected}`}
+                  type="checkbox"
+                  checked={cur.controlled !== false}
+                  onChange={(e) => update(selected, { controlled: e.target.checked })}
+                />
+                可控（联锁可拦截）；取消勾选＝不可控（现场必然发生）
               </label>
               <button
                 data-testid="delete-transition"

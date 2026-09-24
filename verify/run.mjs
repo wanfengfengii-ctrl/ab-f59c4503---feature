@@ -264,7 +264,147 @@ async function main() {
       `状态数=${hook.pipeline.stats?.states}`,
     );
 
-    // ---------- 9. 浏览器页面级异常 ----------
+    // ---------- 10. 联锁综合：引擎钩子 ----------
+    const ilHook = await page.evaluate(() => {
+      const safe = window.__samples.find((s) => s.key === 'interlock-safe').model;
+      const unsafe = window.__samples.find((s) => s.key === 'interlock-unsafe').model;
+      const seq = window.__samples.find((s) => s.key === 'sequential').model;
+      const lasso = window.__samples.find((s) => s.key === 'lasso').model;
+      // 纯不可控环（初始即在环上）
+      const ucCycle = {
+        places: [
+          { name: 'a', capacity: 1, initial: 1, acceptance: 0 },
+          { name: 'b', capacity: 1, initial: 0, acceptance: 0 },
+          { name: 'ok', capacity: 1, initial: 0, acceptance: 1 },
+        ],
+        transitions: [
+          { name: 'ab', pre: [1, 0, 0], post: [0, 1, 0], controlled: false },
+          { name: 'ba', pre: [0, 1, 0], post: [1, 0, 0], controlled: false },
+        ],
+        forbidden: [],
+      };
+      const find = (r, m) => r.states?.find((s) => s.marking.every((v, i) => v === m[i]));
+      const rs = window.__runInterlock(safe);
+      const ru = window.__runInterlock(unsafe);
+      const rSeq = window.__runInterlock(seq);
+      const rLasso = window.__runInterlock(lasso);
+      const rCycle = window.__runInterlock(ucCycle);
+      const initSafe = find(rs, [1, 0, 0, 0, 0, 0]);
+      const danger = find(rs, [0, 0, 0, 1, 0, 0]);
+      const initUnsafe = find(ru, [1, 0, 0, 0]);
+      return {
+        safeKind: rs.kind,
+        initRank: rs.stats?.initRank,
+        safeBlocked: rs.stats?.blockedEdges,
+        initT3: initSafe?.enabled.find((e) => e.t === 2)?.decision,
+        dangerForced: danger?.enabled.find((e) => e.t === 5)?.decision,
+        unsafeKind: ru.kind,
+        unsafeOutcome: ru.failure?.outcome,
+        unsafeTerm: ru.failure?.terminalMarking,
+        unsafeTrace: ru.failure?.trace?.map((s) => s.t),
+        unsafeCons: ru.failure?.consequence?.map((s) => s.t),
+        unsafeEnd: ru.failure?.endMarking,
+        initUnsafeBlocked: initUnsafe?.enabled.find((e) => e.t === 0)?.decision,
+        seqKind: rSeq.kind,
+        seqRank: rSeq.stats?.initRank,
+        lassoKind: rLasso.kind, // 全可控时联锁可拦循环边 ⇒ safe
+        lassoBlocked: rLasso.stats?.blockedEdges,
+        cycleKind: rCycle.kind,
+        cycleOutcome: rCycle.failure?.outcome,
+        cycleTs: rCycle.failure?.cycle?.map((s) => s.t),
+      };
+    });
+    report('联锁（冷却示例）综合成功', ilHook.safeKind === 'safe', ilHook.safeKind);
+    report('联锁初始保证界为 3 且存在拦截边', ilHook.initRank === 3 && ilHook.safeBlocked > 0, `rank=${ilHook.initRank} blocked=${ilHook.safeBlocked}`);
+    report('初始标记违章启动 T3 被拦截', ilHook.initT3 === 'blocked', ilHook.initT3);
+    report('危险运行态不可控过热为强制放行', ilHook.dangerForced === 'forced', ilHook.dangerForced);
+    report(
+      '过热不可控示例综合失败：后果进禁态，最早失控点=泵运行',
+      ilHook.unsafeKind === 'unsafe' &&
+        ilHook.unsafeOutcome === 'forbidden' &&
+        JSON.stringify(ilHook.unsafeTerm) === '[0,1,0,0]' &&
+        JSON.stringify(ilHook.unsafeTrace) === '[0]' &&
+        JSON.stringify(ilHook.unsafeCons) === '[2]' &&
+        JSON.stringify(ilHook.unsafeEnd) === '[0,0,1,0]',
+      JSON.stringify({ o: ilHook.unsafeOutcome, term: ilHook.unsafeTerm, tr: ilHook.unsafeTrace, c: ilHook.unsafeCons, end: ilHook.unsafeEnd }),
+    );
+    report('失控模型初始标记的可控启动被联锁拦截', ilHook.initUnsafeBlocked === 'blocked', ilHook.initUnsafeBlocked);
+    report('旧模型（无 controlled）联锁综合仍成功且保证界 3', ilHook.seqKind === 'safe' && ilHook.seqRank === 3, `${ilHook.seqKind}/${ilHook.seqRank}`);
+    report('全可控套索模型：联锁可拦截循环边，综合成功', ilHook.lassoKind === 'safe' && ilHook.lassoBlocked > 0, `${ilHook.lassoKind} blocked=${ilHook.lassoBlocked}`);
+    report(
+      '纯不可控环：综合失败且给出 cycle 后果 [T1,T2]',
+      ilHook.cycleKind === 'unsafe' &&
+        ilHook.cycleOutcome === 'cycle' &&
+        JSON.stringify(ilHook.cycleTs) === '[0,1]',
+      JSON.stringify({ k: ilHook.cycleKind, o: ilHook.cycleOutcome, ts: ilHook.cycleTs }),
+    );
+
+    // ---------- 11. 联锁综合：界面模式 / 按标记查看 / 回放 ----------
+    await page.click('[data-testid="mode-interlock"]');
+    await selectSample(page, 'interlock-safe');
+    await runAudit(page);
+    await waitText(page, '[data-testid="il-verdict"]', '联锁综合成功');
+    report(
+      '联锁成功结论含保证界说明',
+      (await text(page, '[data-testid="il-message"]')).includes('保证界为 3'),
+      await text(page, '[data-testid="il-message"]'),
+    );
+    report('初始保证界显示 3', (await text(page, '[data-testid="il-rank"]')) === '3');
+    // 初始标记下 T3 违章启动为拦截行
+    const initBlockedRow = await page.$('[data-testid="il-edge-2"][data-decision="blocked"]');
+    report('按标记查看：初始标记 T3 显示为拦截', !!initBlockedRow);
+    // 切换到危险运行标记（选项文本含标记向量）
+    const dangerOption = await page.$eval('[data-testid="il-state-select"]', (sel) =>
+      [...sel.options].find((o) => o.text.includes('(0, 0, 0, 1, 0, 0)'))?.value,
+    );
+    await page.selectOption('[data-testid="il-state-select"]', dangerOption);
+    report(
+      '危险运行标记显示“无法受控化解”且 T6 不可控必放',
+      (await text(page, '[data-testid="il-state-status"]')).includes('无法受控化解') &&
+        !!(await page.$('[data-testid="il-edge-5"][data-decision="forced"]')),
+    );
+    // 收敛见证回放（回到初始标记，见证长度 3）
+    const initOption = await page.$eval('[data-testid="il-state-select"]', (sel) =>
+      [...sel.options].find((o) => o.text.includes('(1, 0, 0, 0, 0, 0)'))?.value,
+    );
+    await page.selectOption('[data-testid="il-state-select"]', initOption);
+    await waitText(page, '[data-testid="il-replay-position"]', '0 / 3');
+    await page.click('[data-testid="il-replay-next"]');
+    report(
+      '联锁回放逐步给出策略解释',
+      (await text(page, '[data-testid="il-replay-position"]')) === '1 / 3' &&
+        (await text(page, '[data-testid="il-replay-reason"]')).includes('严格推进'),
+      await text(page, '[data-testid="il-replay-reason"]'),
+    );
+
+    // ---------- 12. 联锁综合：失败根因卡片 ----------
+    await selectSample(page, 'interlock-unsafe');
+    await runAudit(page);
+    await waitText(page, '[data-testid="il-verdict"]', '联锁综合失败');
+    report(
+      '失败卡片给出最早失控标记与禁态后果',
+      (await text(page, '[data-testid="il-failure-marking"]')).includes('0, 1, 0, 0') &&
+        (await text(page, '[data-testid="il-failure-end"]')).includes('0, 0, 1, 0') &&
+        (await text(page, '[data-testid="il-failure-outcome"]')).includes('禁态'),
+      `${await text(page, '[data-testid="il-failure-marking"]')} / ${await text(page, '[data-testid="il-failure-end"]')}`,
+    );
+
+    // ---------- 13. 界面编辑：把套索模型的 T2 改为不可控后综合失败 ----------
+    await selectSample(page, 'lasso');
+    await page.click('[data-testid="transition-item-1"]'); // T2 重新配料
+    await page.uncheck('[data-testid="transition-controlled-1"]');
+    await runAudit(page);
+    await waitText(page, '[data-testid="il-verdict"]', '联锁综合失败');
+    report(
+      'T2 置为不可控后综合失败且根因含永久循环 / 停滞',
+      (await page.textContent('[data-testid="il-failure"]'))?.includes('循环') === true ||
+        (await page.textContent('[data-testid="il-failure"]'))?.includes('死锁') === true,
+    );
+    // 恢复默认，避免影响后续
+    await page.check('[data-testid="transition-controlled-1"]');
+    await page.click('[data-testid="mode-audit"]');
+
+    // ---------- 14. 浏览器页面级异常 ----------
     report('页面运行无未捕获异常', pageErrors.length === 0, pageErrors.join(' | '));
   } catch (e) {
     report('验收执行异常', false, String(e?.message ?? e));

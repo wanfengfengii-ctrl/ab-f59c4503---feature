@@ -44,6 +44,13 @@ export interface TransitionSpec {
   pre: number[];
   /** 后置弧权，长度 = 库所数 */
   post: number[];
+  /**
+   * 联锁可控性（仅供联锁综合使用，不影响既有审计语义）：
+   * - true（或缺省）：可控变迁，联锁可以拒绝（拦截）其触发；
+   * - false：不可控变迁（现场必然发生的动作 / 自发事件），一旦可用联锁必须放行并纳入保证。
+   * 旧模型未填写该属性时按可控处理，且原审计结果完全不变。
+   */
+  controlled?: boolean;
 }
 
 export interface PetriModel {

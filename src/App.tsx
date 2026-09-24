@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { ForbiddenEditor } from './components/ForbiddenEditor';
+import { InterlockPanel } from './components/InterlockPanel';
 import { JsonModal } from './components/JsonModal';
 import { PlacesEditor } from './components/PlacesEditor';
 import { ResultPanel } from './components/ResultPanel';
 import { TransitionsEditor } from './components/TransitionsEditor';
 import { useAudit } from './hooks/useAudit';
+import { useInterlock } from './hooks/useInterlock';
 import { SAMPLES } from './petri/samples';
 import { PetriModel, PlaceSpec, TransitionSpec } from './petri/types';
 import { validateModel } from './petri/validate';
@@ -29,11 +31,28 @@ export default function App() {
   const [jsonText, setJsonText] = useState('');
   const [jsonErrors, setJsonErrors] = useState<string[]>([]);
   const { running, result, audit } = useAudit();
+  // 结果对应的模型快照：结果产生时的模型可能与当前编辑中的模型不同（切换样本 / 编辑）
+  const [auditModel, setAuditModel] = useState<PetriModel | null>(null);
+  const { running: ilRunning, result: ilResult, synthesize } = useInterlock();
+  const [mode, setMode] = useState<'audit' | 'interlock'>('audit');
+  // 联锁结果对应的模型快照：切换样本 / 编辑后旧结果仍可回放，且不会与新模型错配崩溃
+  const [ilModel, setIlModel] = useState<PetriModel | null>(null);
   const auditedModel = useRef<PetriModel | null>(null);
+  const synthesizedModel = useRef<PetriModel | null>(null);
+
+  const hasUncontrolled = model.transitions.some((t) => t.controlled === false);
 
   const stale = useMemo(
-    () => result !== null && auditedModel.current !== null && auditedModel.current !== model,
-    [result, model],
+    () =>
+      (mode === 'audit' &&
+        result !== null &&
+        auditedModel.current !== null &&
+        auditedModel.current !== model) ||
+      (mode === 'interlock' &&
+        ilResult !== null &&
+        synthesizedModel.current !== null &&
+        synthesizedModel.current !== model),
+    [mode, result, ilResult, model],
   );
 
   // ---- 结构性修改：库所增删时同步弧向量长度与禁态下标 ----
@@ -106,8 +125,15 @@ export default function App() {
   };
 
   const run = () => {
-    auditedModel.current = model;
-    audit(model, maxStates);
+    if (mode === 'interlock') {
+      synthesizedModel.current = model;
+      setIlModel(model);
+      synthesize(model, maxStates);
+    } else {
+      auditedModel.current = model;
+      setAuditModel(model);
+      audit(model, maxStates);
+    }
   };
 
   const sample = SAMPLES.find((s) => s.key === sampleKey);
@@ -154,8 +180,33 @@ export default function App() {
               }}
             />
           </label>
-          <button className="primary" data-testid="run-audit" disabled={running} onClick={run}>
-            {running ? '审计中…' : '▶ 运行审计'}
+          <div className="mode-switch" role="tablist" aria-label="分析模式">
+            <button
+              role="tab"
+              aria-selected={mode === 'audit'}
+              data-testid="mode-audit"
+              className={mode === 'audit' ? 'active' : ''}
+              onClick={() => setMode('audit')}
+            >
+              审计
+            </button>
+            <button
+              role="tab"
+              aria-selected={mode === 'interlock'}
+              data-testid="mode-interlock"
+              className={mode === 'interlock' ? 'active' : ''}
+              onClick={() => setMode('interlock')}
+            >
+              联锁综合
+            </button>
+          </div>
+          <button
+            className="primary"
+            data-testid="run-audit"
+            disabled={running || ilRunning}
+            onClick={run}
+          >
+            {running || ilRunning ? (mode === 'interlock' ? '综合中…' : '审计中…') : mode === 'interlock' ? '▶ 运行联锁综合' : '▶ 运行审计'}
           </button>
         </div>
       </header>
@@ -175,7 +226,19 @@ export default function App() {
           />
         </section>
         <section className="result-col">
-          <ResultPanel result={result} running={running} model={model} stale={stale} />
+          {mode === 'audit' ? (
+            <ResultPanel result={result} running={running} model={auditModel ?? model} stale={stale} />
+          ) : (
+            <>
+              {!hasUncontrolled && (
+                <div className="card interlock-hint" data-testid="interlock-hint">
+                  当前模型所有变迁均为可控（缺省）。联锁综合仍会给出严格推进的放行策略；
+                  如需建模“现场必然发生”的自发事件，请在变迁编辑器取消对应变迁的“可控”勾选。
+                </div>
+              )}
+              <InterlockPanel result={ilResult} running={ilRunning} model={ilModel ?? model} stale={stale} />
+            </>
+          )}
         </section>
       </main>
       <JsonModal
