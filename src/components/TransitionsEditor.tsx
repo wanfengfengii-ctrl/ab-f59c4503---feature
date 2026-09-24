@@ -64,6 +64,8 @@ export function TransitionsEditor({ places, transitions, onChange }: Props) {
               onClick={() => setSelected(i)}
             >
               <span className="dim">T{i + 1}</span> {t.name}
+              {t.controllable === true && <span className="ctrl-badge ctrl-yes" title="可控：联锁可拦截">控</span>}
+              {t.controllable === false && <span className="ctrl-badge ctrl-no" title="不可控：现场必然发生">必</span>}
             </button>
           ))}
           <button
@@ -85,6 +87,22 @@ export function TransitionsEditor({ places, transitions, onChange }: Props) {
                   value={cur.name}
                   onChange={(e) => update(selected, { name: e.target.value })}
                 />
+              </label>
+              <label>
+                联锁属性
+                <select
+                  data-testid={`transition-control-${selected}`}
+                  value={cur.controllable === undefined ? '' : String(cur.controllable)}
+                  onChange={(e) =>
+                    update(selected, {
+                      controllable: e.target.value === '' ? undefined : e.target.value === 'true',
+                    })
+                  }
+                >
+                  <option value="">未填写（仅审计，不综合联锁）</option>
+                  <option value="true">可控（联锁可拦截）</option>
+                  <option value="false">不可控（现场必然发生）</option>
+                </select>
               </label>
               <button
                 data-testid="delete-transition"
@@ -135,6 +153,10 @@ export function TransitionsEditor({ places, transitions, onChange }: Props) {
             </table>
             <p className="hint">
               触发条件：所有库所令牌 ≥ 前置弧，且触发后不超过库所容量；触发是原子的。
+            </p>
+            <p className="hint">
+              联锁属性：<strong>可控</strong>变迁可被联锁拒绝；<strong>不可控</strong>变迁现场必然发生、只能纳入保证。
+              全部变迁填写后运行审计将额外综合状态相关放行策略；任一变迁保持「未填写」则只做原审计，结果不变。
             </p>
           </div>
         )}

@@ -1,13 +1,15 @@
 import { useMemo, useRef, useState } from 'react';
 import { ForbiddenEditor } from './components/ForbiddenEditor';
+import { InterlockPanel } from './components/InterlockPanel';
 import { JsonModal } from './components/JsonModal';
 import { PlacesEditor } from './components/PlacesEditor';
 import { ResultPanel } from './components/ResultPanel';
 import { TransitionsEditor } from './components/TransitionsEditor';
 import { useAudit } from './hooks/useAudit';
 import { SAMPLES } from './petri/samples';
+import type { EngineMode } from './petri/auditWorker';
 import { PetriModel, PlaceSpec, TransitionSpec } from './petri/types';
-import { validateModel } from './petri/validate';
+import { hasControllability, validateModel } from './petri/validate';
 
 const blankModel = (): PetriModel => ({
   places: [
@@ -22,18 +24,20 @@ export default function App() {
   const [model, setModel] = useState<PetriModel>(() => structuredClone(SAMPLES[0].model));
   const [sampleKey, setSampleKey] = useState(SAMPLES[0].key);
   const [maxStates, setMaxStates] = useState(200_000);
+  const [mode, setMode] = useState<EngineMode>('audit');
   const [modal, setModal] = useState<{ open: boolean; mode: 'import' | 'export' }>({
     open: false,
     mode: 'import',
   });
   const [jsonText, setJsonText] = useState('');
   const [jsonErrors, setJsonErrors] = useState<string[]>([]);
-  const { running, result, audit } = useAudit();
+  const { running, result, interlockResult, audit } = useAudit();
   const auditedModel = useRef<PetriModel | null>(null);
 
+  const controllableReady = useMemo(() => hasControllability(model), [model]);
   const stale = useMemo(
-    () => result !== null && auditedModel.current !== null && auditedModel.current !== model,
-    [result, model],
+    () => auditedModel.current !== null && auditedModel.current !== model,
+    [model],
   );
 
   // ---- 结构性修改：库所增删时同步弧向量长度与禁态下标 ----
@@ -107,10 +111,12 @@ export default function App() {
 
   const run = () => {
     auditedModel.current = model;
-    audit(model, maxStates);
+    audit(model, maxStates, mode);
   };
 
   const sample = SAMPLES.find((s) => s.key === sampleKey);
+  const runLabel =
+    running ? '计算中…' : mode === 'interlock' ? '▶ 综合联锁策略' : '▶ 运行审计';
 
   return (
     <div className="app">
@@ -140,6 +146,23 @@ export default function App() {
           <button className="secondary" data-testid="export-json" onClick={openExport}>
             导出 JSON
           </button>
+          <div className="mode-switch" role="tablist" aria-label="引擎模式">
+            <button
+              className={mode === 'audit' ? 'primary' : 'secondary'}
+              data-testid="mode-audit"
+              onClick={() => setMode('audit')}
+            >
+              完整审计
+            </button>
+            <button
+              className={mode === 'interlock' ? 'primary' : 'secondary'}
+              data-testid="mode-interlock"
+              onClick={() => setMode('interlock')}
+              title={controllableReady ? '' : '所有变迁填写可控 / 不可控后可用'}
+            >
+              联锁综合
+            </button>
+          </div>
           <label className="max-states">
             状态上限
             <input
@@ -154,12 +177,23 @@ export default function App() {
               }}
             />
           </label>
-          <button className="primary" data-testid="run-audit" disabled={running} onClick={run}>
-            {running ? '审计中…' : '▶ 运行审计'}
+          <button
+            className="primary"
+            data-testid="run-audit"
+            disabled={running || (mode === 'interlock' && !controllableReady)}
+            onClick={run}
+          >
+            {runLabel}
           </button>
         </div>
       </header>
       {sample && <div className="sample-desc">{sample.description}</div>}
+      {mode === 'interlock' && !controllableReady && (
+        <div className="mode-hint" data-testid="interlock-disabled-hint">
+          存在未填写联锁属性的变迁：请在变迁编辑器中将每个变迁标为「可控（联锁可拦截）」或
+          「不可控（现场必然发生）」；未全部填写时维持原审计结果，不进行联锁综合。
+        </div>
+      )}
       <main className="layout">
         <section className="editor-col">
           <PlacesEditor places={model.places} onChange={setPlaces} />
@@ -175,7 +209,25 @@ export default function App() {
           />
         </section>
         <section className="result-col">
-          <ResultPanel result={result} running={running} model={model} stale={stale} />
+          {mode === 'audit' ? (
+            <ResultPanel result={result} running={running} model={model} stale={stale} />
+          ) : (
+            interlockResult && (
+              <InterlockPanel result={interlockResult} running={running} model={model} stale={stale} />
+            )
+          )}
+          {mode === 'interlock' && !interlockResult && (
+            <div className="card result-panel" data-testid="result-empty">
+              <h2>联锁综合结果</h2>
+              <p className="hint">
+                {running
+                  ? '综合中……'
+                  : controllableReady
+                    ? '全部变迁已填写联锁属性，点击「综合联锁策略」。'
+                    : '全部变迁填写可控 / 不可控属性后，点击「综合联锁策略」。'}
+              </p>
+            </div>
+          )}
         </section>
       </main>
       <JsonModal

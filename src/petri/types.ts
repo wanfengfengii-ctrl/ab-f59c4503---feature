@@ -44,6 +44,13 @@ export interface TransitionSpec {
   pre: number[];
   /** 后置弧权，长度 = 库所数 */
   post: number[];
+  /**
+   * 联锁属性（可选，向后兼容）：
+   * - true  = 可控变迁：联锁可以拒绝（拦截）其触发；
+   * - false = 不可控变迁：现场必然发生，联锁无法拒绝，只能纳入保证；
+   * - undefined = 未填写：不进行联锁综合，维持原审计结果。
+   */
+  controllable?: boolean;
 }
 
 export interface PetriModel {

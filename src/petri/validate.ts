@@ -70,7 +70,17 @@ export function validateModel(raw: unknown): { errors: string[]; model: PetriMod
         return v;
       });
     };
-    return { name, pre: readArcs('pre'), post: readArcs('post') };
+    // 可控属性缺省（旧模型）→ undefined：不触发联锁综合，维持原审计；
+    // undefined / null / 缺省一律视为未填写；仅明确的非布尔值报错。
+    let controllable: boolean | undefined;
+    if (o.controllable === undefined || o.controllable === null) {
+      controllable = undefined;
+    } else if (typeof o.controllable === 'boolean') {
+      controllable = o.controllable;
+    } else {
+      errors.push(`变迁 ${name}：controllable 必须是布尔值 true（可控）/ false（不可控），或省略不填`);
+    }
+    return { name, pre: readArcs('pre'), post: readArcs('post'), controllable };
   });
 
   // ---- 禁态条件（DNF）----
@@ -105,4 +115,12 @@ export function validateModel(raw: unknown): { errors: string[]; model: PetriMod
     errors: [],
     model: { places: normPlaces, transitions: normTransitions, forbidden: normForbidden },
   };
+}
+
+/**
+ * 是否所有变迁都已填写可控属性（true / false）。
+ * 只要存在一个变迁未填写（旧模型），即不进行联锁综合，维持原审计结果。
+ */
+export function hasControllability(model: PetriModel): boolean {
+  return model.transitions.every((t) => typeof t.controllable === 'boolean');
 }

@@ -583,3 +583,179 @@ input[type='number'] {
   max-height: 120px;
   overflow-y: auto;
 }
+
+/* 模式切换与联锁属性 */
+.mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mode-switch button {
+  border: none;
+  border-radius: 0;
+}
+
+.mode-hint {
+  background: #422006;
+  border: 1px solid var(--amber);
+  color: #fcd34d;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+.ctrl-badge {
+  display: inline-block;
+  margin-left: 6px;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.ctrl-yes {
+  background: #052e16;
+  color: #86efac;
+  border: 1px solid var(--green);
+}
+
+.ctrl-no {
+  background: #450a0a;
+  color: #fca5a5;
+  border: 1px solid var(--red);
+}
+
+/* 联锁策略表 */
+.policy-summary {
+  margin: 6px 0 8px;
+}
+
+.policy-badge.granted {
+  color: #86efac;
+  border-color: var(--green);
+}
+
+.policy-badge.denied {
+  color: #fca5a5;
+  border-color: var(--red);
+}
+
+.policy-badge.mandatory-safe {
+  color: #86efac;
+  border-color: #166534;
+}
+
+.policy-badge.mandatory-bad {
+  color: #fca5a5;
+  border-color: #991b1b;
+}
+
+.policy-table {
+  font-size: 12.5px;
+  max-height: 380px;
+  overflow-y: auto;
+  display: block;
+}
+
+.policy-table thead,
+.policy-table tbody {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.policy-reason {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.policy-status {
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.status-granted {
+  color: #86efac;
+}
+
+.status-denied {
+  color: #fca5a5;
+}
+
+.status-mandatory-safe {
+  color: #4ade80;
+}
+
+.status-mandatory-bad {
+  color: #f87171;
+}
+
+.status-disabled {
+  color: var(--dim);
+}
+
+/* 标记浏览器 */
+.marking-browser-body {
+  display: grid;
+  grid-template-columns: minmax(240px, 5fr) minmax(300px, 6fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .marking-browser-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.marking-table {
+  font-size: 12px;
+  max-height: 460px;
+  overflow-y: auto;
+  display: block;
+}
+
+.marking-table tbody tr {
+  cursor: pointer;
+}
+
+.marking-table tbody tr:hover {
+  background: #1c2940;
+}
+
+.marking-table tr.current {
+  background: #0c2a3f;
+}
+
+.marking-table tr.rank-forbidden td:first-child {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+.marking-table tr.rank-\--1 td:first-child {
+  box-shadow: inset 3px 0 0 #7f1d1d;
+}
+
+.bad-transitions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.bad-t-btn {
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.bad-t-btn.active {
+  border-color: var(--red);
+  background: #3f1414;
+}
+
+.witness-card {
+  border-color: #7f1d1d;
+}

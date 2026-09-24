@@ -13,7 +13,12 @@ const p = (name: string, capacity: number, initial: number, acceptance: number) 
   initial,
   acceptance,
 });
-const t = (name: string, pre: number[], post: number[]) => ({ name, pre, post });
+const t = (name: string, pre: number[], post: number[], controllable?: boolean) => ({
+  name,
+  pre,
+  post,
+  ...(controllable === undefined ? {} : { controllable }),
+});
 
 export const SAMPLES: Sample[] = [
   {
@@ -119,6 +124,67 @@ export const SAMPLES: Sample[] = [
         t('灌装', [0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0]),
         t('清洗', [0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 1, 0]),
         t('批次验收', [0, 0, 0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 1]),
+      ],
+      forbidden: [],
+    },
+  },
+  {
+    key: 'il-safe',
+    label: '【联锁】自动完工+可拦截排空（可保证）',
+    description: '“自动完工”是不可控变迁（现场必然发生但必达验收，纳入保证）；“手动排空”是可控变迁，会进入非验收死锁，被联锁拦截。',
+    model: {
+      places: [
+        p('就绪', 1, 1, 0),
+        p('加工中', 1, 0, 0),
+        p('废料', 1, 0, 0),
+        p('完成', 1, 0, 1),
+      ],
+      transitions: [
+        t('开始加工', [1, 0, 0, 0], [0, 1, 0, 0], true),
+        t('自动完工', [0, 1, 0, 0], [0, 0, 0, 1], false),
+        t('手动排空', [1, 0, 0, 0], [0, 0, 1, 0], true),
+      ],
+      forbidden: [],
+    },
+  },
+  {
+    key: 'il-uncontrollable',
+    label: '【联锁】突发超压不可控（无法保证）',
+    description: '就绪态存在不可控的“突发超压”变迁，联锁无法拒绝且其后果为禁态——最早无法受控化解的标记即初始标记。',
+    model: {
+      places: [
+        p('就绪', 1, 1, 0),
+        p('正常运行', 1, 0, 0),
+        p('完成', 1, 0, 1),
+        p('超压', 1, 0, 0),
+      ],
+      transitions: [
+        t('启动', [1, 0, 0, 0], [0, 1, 0, 0], true),
+        t('自动完工', [0, 1, 0, 0], [0, 0, 1, 0], false),
+        t('突发超压', [1, 0, 0, 0], [0, 0, 0, 1], false),
+      ],
+      forbidden: [
+        [{ place: 3, op: 'ge', value: 1 }],
+      ],
+    },
+  },
+  {
+    key: 'il-choice',
+    label: '【联锁】双工位选择与回退（最大宽容）',
+    description: '两条受控路径都严格推进至验收，故均被放行；“回退”把令牌带回更高收敛层，不保证严格推进，被拦截。',
+    model: {
+      places: [
+        p('就绪', 1, 1, 0),
+        p('A工位', 1, 0, 0),
+        p('B工位', 1, 0, 0),
+        p('完成', 1, 0, 1),
+      ],
+      transitions: [
+        t('选A', [1, 0, 0, 0], [0, 1, 0, 0], true),
+        t('选B', [1, 0, 0, 0], [0, 0, 1, 0], true),
+        t('A完工', [0, 1, 0, 0], [0, 0, 0, 1], true),
+        t('B完工', [0, 0, 1, 0], [0, 0, 0, 1], true),
+        t('回退', [0, 1, 0, 0], [1, 0, 0, 0], true),
       ],
       forbidden: [],
     },
